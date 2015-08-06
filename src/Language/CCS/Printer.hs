@@ -1,13 +1,13 @@
 module Language.CCS.Printer where
 
 import Language.CCS.Data
-import Text.PrettyPrint
+import Text.PrettyPrint 
 import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 
 
 includeToC :: CInclude -> Doc
-includeToC (CInclude s) = text "#include" <+> (doubleQuotes $ text s)
+includeToC (CInclude s) = text s
 
 headersToC = vcat . map includeToC 
 
@@ -60,7 +60,7 @@ mCodeBegin :: Doc
 mCodeBegin = text "--CCS2CS--Macro-Expansions--"
 
 
-stdhdrs = map CInclude ["stdio.h", "stddef.h","string.h", "errno.h"]
+stdhdrs = map CInclude ["#include <stdio.h>", "#include <stddef.h>","#include <string.h>"]
 
 appendHdrs :: [CInclude] -> [CInclude]
 appendHdrs hdrs = stdhdrs ++ hdrs
@@ -115,24 +115,24 @@ enumFieldsToDoc nm (f:s:rest) =  enumFieldToDoc nm f <+> comma $+$ (enumFieldsTo
 
 clsFieldToDoc :: CCSMap -> (String ,String, EnumValue) -> Doc
 clsFieldToDoc _ (typ,f,  EmptyEnum) = nest 4 $ text "internal" <+> text "static" <+> text typ <+> text  "{ get; set; }"
-clsFieldToDoc nm (typ, f, EnumText s)  = nest 4 $ hsep [text "internal", text "static", text typ , text f , text "=" , text s]
+clsFieldToDoc nm (typ, f, EnumText s)  = nest 4 $ hsep [text "internal", text "static", text typ , text f , text "=" , text s, semi]
 clsFieldToDoc nm (typ, f, e@(EnumComplex vs) )  = nest 4 $  hsep [text "internal", text "const", text typ , text f , enumValToDoc nm e]
-clsFieldToDoc nm (typ, f, e )  = nest 4 $ hsep [text "internal", text "const", text typ , text f , text "=" , enumValToDoc nm e]
+clsFieldToDoc nm (typ, f, e )  = nest 4 $ hsep [text "internal", text "const", text typ , text f , text "=" , enumValToDoc nm e, semi]
                                 
 enumToDoc :: CCSMap -> String -> [(String, EnumValue)] -> Doc
-enumToDoc nm  enumName lst = nest 8 enumDef
+enumToDoc nm  enumName lst =  enumDef
   where enumDef = vcat $ [text "internal" <+> text "enum",
                           lbrace,
                           enumFieldsToDoc nm lst,
                           rbrace]
 
 clsToDoc :: CCSMap ->String -> [(String, String, EnumValue)] -> Doc
-clsToDoc nm enumName lst = nest 8 clsDef
-  where clsDef = (vcat $ (text "internal" <+> text "static" <+> text "class" <> lbrace) : (map (clsFieldToDoc nm) lst) ) $$ rbrace
+clsToDoc nm enumName lst =  clsDef
+  where clsDef = (vcat $ (text "internal" <+> text "static" <+> text "class" <+> text enumName <> lbrace) : (map (clsFieldToDoc nm) lst) ) $$ rbrace
 
 
 strToDoc :: CCSMap -> String ->String -> [(String, String, String)] -> Doc
-strToDoc nm clsName cstr lst = nest 8 strDef
+strToDoc nm clsName cstr lst =  strDef
   where strDef = vcat $ [text "internal" <+>  text "class" <+> text clsName <> lbrace , consdef] ++  (map strFieldToDoc lst) ++ [genMeth,rbrace]
         consdef =  nest 4 $ hsep [ text "private" , text clsName , text "()", lbrace, rbrace]
         genMeth =  nest 4 $ vcat $ [ text "public"  <+> text "static" <+> text clsName <+> text "Unmarshal(IntPtr _nativePointer)" <+> lbrace, instLine] ++
@@ -144,15 +144,15 @@ strToDoc nm clsName cstr lst = nest 8 strDef
                                     
 
 
-ccsTypeToDoc :: CCSMap -> CCSType -> Doc
-ccsTypeToDoc nm (CSEnum s lst) = enumToDoc nm s lst
-ccsTypeToDoc nm (CSClass s lst) = clsToDoc nm s lst
-ccsTypeToDoc nm (CSStruct s1 s2 lst) = strToDoc nm s1 s2 lst
+ccsTypeToDoc :: Int -> CCSMap -> CCSType -> Doc
+ccsTypeToDoc i nm (CSEnum s lst) = nest i $ enumToDoc nm s lst
+ccsTypeToDoc i nm (CSClass s lst) = nest i $ clsToDoc nm s lst
+ccsTypeToDoc i nm (CSStruct s1 s2 lst) = nest i $ strToDoc nm s1 s2 lst
 
 
 
 ccsFileToDoc :: CCSMap -> CCSFile -> Doc
-ccsFileToDoc nm (CCSFile p _ _ _ types e) = vcat $ [prologToDoc p ] ++ map (ccsTypeToDoc nm) types ++ [epilogToDoc nm e]
+ccsFileToDoc nm (CCSFile p _ i _ types e) = vcat $ [prologToDoc p ] ++ map (ccsTypeToDoc i nm) types ++ [epilogToDoc nm e]
 
 
 csFile :: CCSMap -> CCSFile -> String

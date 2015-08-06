@@ -10,3 +10,5 @@ cabal-dev
 .ninja_deps
 .ninja_log
 *.ccs.*
+*.out
+*.exe

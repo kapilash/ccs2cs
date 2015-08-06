@@ -77,7 +77,7 @@ data CCSType = CSEnum  String  [(String, EnumValue)]
 data CCSFile = CCSFile {
                  ccsPrologue    :: CSPrologue
                 ,ccsLib         :: CLib
-                ,ccsExtra      :: [CLib]
+                ,ccsIndent      :: Int
                 ,ccsIncludes    :: [CInclude]
                 ,ccsTypes       ::   [CCSType]
                 ,ccsEpilogue  :: [CSVal]

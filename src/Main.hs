@@ -12,17 +12,34 @@ import System.Console.GetOpt
 import Text.PrettyPrint
 import System.Process
 import System.Exit
+import System.Info
 
 newtype CPPArgs = CPPArgs [String]
                   deriving Show
 
 
-asPreProcArgs (CPPArgs strs) f = "-E" : (strs ++ [f])
+compilercmd = if os == "mingw32"
+              then "cl.exe"
+              else "clang"
+
+preproccmd = if os == "mingw32"
+             then "cl.exe"
+             else "clang"
+
+asPreProcArgs (CPPArgs strs) f = if os == "mingw32" then  "/E" : (strs ++ [f])
+                                 else "-E" : (strs ++ [f])
 
 newtype CompArgs = CompArgs [String]
                    deriving Show
 
-asCompilerArgs (CompArgs strs) f = strs ++ ["-o", "ccsgen.out", f]
+
+
+
+asCompilerArgs (CompArgs strs) f = if os /= "mingw32"
+                                   then strs ++ ["-o", "ccsgen.out", f]
+                                   else strs ++ ["/o", "ccsgen.exe", f]
+
+executableName = if os == "mingw32" then "ccsgen.exe" else "./ccsgen.out"
 
 data CCSOption  = InclDir String
                 | LibDir String
@@ -70,7 +87,7 @@ genMCode (set, ccsfile) f = writeFile f (render $ mCode set (ccsIncludes ccsfile
 
 runCpp :: FilePath -> CPPArgs -> IO (Maybe (HM.HashMap NativeTxt NativeVal))
 runCpp f args = do
-  (e,stdout, stderr) <- readProcessWithExitCode "clang" (asPreProcArgs args f) ""
+  (e,stdout, stderr) <- readProcessWithExitCode preproccmd (asPreProcArgs args f) ""
   case e of
    ExitFailure i  -> do {putStrLn $ "preprocessor failed with exit code " ++ (show i);putStrLn stderr; return Nothing}
    ExitSuccess    -> genParseTxt mOutParser f HM.empty stdout
@@ -79,11 +96,11 @@ runCpp f args = do
 genCCode :: (HS.HashSet NativeTxt, HM.HashMap NativeTxt NativeVal, CCSFile) -> FilePath -> CompArgs -> IO (Maybe (HM.HashMap NativeTxt NativeVal))
 genCCode (set,nMap, ccsfile) f args = do
   writeFile f (render $ cCode set (ccsIncludes ccsfile))
-  (e, stdout, stderr) <- readProcessWithExitCode "clang" (asCompilerArgs args f) ""
+  (e, stdout, stderr) <- readProcessWithExitCode compilercmd (asCompilerArgs args f) ""
   case e of
    ExitFailure i -> do {putStrLn $ "compilation failed with exit code " ++ (show i); putStrLn stderr; putStrLn stdout; return Nothing}
    ExitSuccess   -> do
-     (e',stdout',_) <- readProcessWithExitCode "./ccsgen.out" [] ""
+     (e',stdout',_) <- readProcessWithExitCode executableName [] ""
      case e of
       ExitFailure i  -> do {putStrLn "Error in computing values"; return Nothing}
       _              -> genParseTxt cOutParser f nMap stdout'

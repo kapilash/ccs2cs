@@ -9,24 +9,71 @@ import qualified Data.HashMap.Strict as HM
 
 type Parser = Parsec String (HS.HashSet NativeTxt)
 
+
+
+
+ignorable :: (Monad m) => ParsecT String u m ()
+ignorable =  do
+  many (space <|> comment)
+  return ()
+    where
+      comment = do {string "/*"; _ <- manyTill anyChar (try $ string "*/"); return ' '}
+
+
+
+
+preprocLine :: Parsec String u CInclude
+preprocLine = do
+  char '#'
+  v <- validDirective
+  line <- manyTill anyChar (try endOfLine)
+  ignorable
+  return . CInclude $ '#':(v ++ line)
+    where validDirective = try ( string "include")
+                           <|> try (string "if")
+                           <|> try (string "endif")
+                           <|> try (string "else")
+                           <|> try (string "define")
+                           <|> try (string "pragma")
+                           <|> try (string "undef")
+
+ptest :: (Show a) =>  Parsec String u a -> u -> String -> IO ()
+ptest p u txt = do
+  putStrLn txt
+  case runParser p u "ptest" txt of
+   Left err      -> print err
+   Right a       -> putStrLn (show a)
+
+
+beginLine :: Parser (Maybe (CLib, Int))
+beginLine = do
+  char '#'
+  keyword "BEGIN"
+  l <- library
+  inden <- option 4 indentation
+  ignorable
+  return $ Just (l, inden)
+    where indentation = do i <- between (char '(') (char ')') digit
+                           return $ (fromEnum i) -  (fromEnum '0')
+
 header :: Parser CInclude
 header = do
   name <- between (char '<') (char '>') (many1 $ noneOf "<>#?:\"\'\r\n\t")
-  spaces
+  ignorable
   return $ CInclude name
   
 library :: Parser CLib
 library = do
   name <- between (char '"') (char '"') (many1 $ noneOf "<>#?:\'\r\n\t\"")
-  spaces
+  ignorable
   return $ CLib name
 
 compilerOption :: Parser CompOpt
 compilerOption = do
   l <- many1 (alphaNum <|> char '-')
-  spaces
+  ignorable
   maybev <- option Nothing optval
-  spaces
+  ignorable
   case maybev of
    Nothing -> return $ CompOptDef l
    Just v  -> return $ CompOptKV  l v
@@ -34,49 +81,23 @@ compilerOption = do
 optval  :: Parser (Maybe String)
 optval = do
   char '='
-  spaces
+  ignorable
   l <- manyTill anyChar  endOfLine
   return (Just l)
 
 symbol :: String -> Parser String
 symbol str = do
   s <- string str
-  spaces
+  ignorable
   return s
 
 keyword :: String -> Parser ()
 keyword str = do
   string str
   notFollowedBy alphaNum
-  spaces
+  ignorable
   
 
-osWin32 = do
-  keyword "Win32"
-  return WINDOWS
-
-osX = do
-  keyword "OSX"
-  return OSX
-
-osLinux = do
-  keyword "Linux"
-  return LINUX
-
-
-osBSD = do
-  keyword "FreeBSD"
-  return FREEBSD
-
-language = try cpp <|> objc <|> clang
-           where cpp = do {keyword "c++"; return CPlusPlus}
-                 objc = do {keyword "objc"; return ObjectiveC}
-                 clang = do {keyword "c" ; return CLang}
-
-os = try osWin32
-     <|> try osX
-     <|> try osLinux
-     <|> osBSD
 
 openSqBracket :: Parser ()
 openSqBracket = do
@@ -91,34 +112,21 @@ closeSqBracket = do
 
 isEqualTo = do
   isEqualTo'
-  spaces
+  ignorable
   where isEqualTo' = char '=' <|> (char ':')
 
 comma = symbol ","
 
-endPrologue = do
-  keyword "definitions"
-  keyword "from"
-  openSqBracket
-  return $ Just ()
-
-prologue :: Parser CSPrologue
-prologue = do
-  lines <- lineOrOsgs []
-  return (CSPrologue lines)
+prologue :: Parser (CSPrologue, CLib, Int)
+prologue =   lineOrOsgs []
     where lineOrOsgs x = do
-            optOsg <- option Nothing (try endPrologue)
+            optOsg <- option Nothing (try beginLine)
             case optOsg of
              Nothing -> do { p <- manyTill anyChar endOfLine; lineOrOsgs (p:x)}
-             Just _  -> return (reverse x)
-  
-
+             Just (l,i)  -> return (CSPrologue $reverse x,l,i)
 
 headers :: Parser [CInclude]
-headers = do
-  keyword "headers"
-  isEqualTo
-  sepBy1 header comma
+headers = many1 preprocLine
 
 libSection :: Parser CLib
 libSection = do
@@ -154,7 +162,7 @@ csIdent :: (Monad m) => ParsecT String u m String
 csIdent = do
   f <- letter
   rst <- many (alphaNum <|> char '_')
-  spaces
+  ignorable
   return (f:rst)
 
 
@@ -252,11 +260,10 @@ csVerbatim = do
   return $ CSVerbatim code
 
 epiMarker = do
-  string "epilogue"
-  spaces
-  isEqualTo
+  keyword "#END"
+  manyTill anyChar (try endOfLine)
   return ()
-
+  
 epilogue = do
   v <- many (csVerbatim <|> hashFragment)
   eof
@@ -298,19 +305,16 @@ typeName :: Parser String
 typeName = do
    i <- letter
    rest <- many (alphaNum <|> char '_' <|> char '.')
-   spaces
+   ignorable
    return (i:rest)
 
 ccsFile = do
-  prol <- prologue
-  l <- libSection
-  extra <- option [] extraLibs
+  (prol,l,i) <- prologue
   hdrs <- headers
-  closeSqBracket
-  types <- between openBrace (char '}') (many cstype)
+  types <- manyTill cstype epiMarker
   epi <- epilogue
   set <- getState
-  return $ (set, CCSFile prol l extra hdrs types epi)
+  return $ (set, CCSFile prol l i hdrs types epi)
   
 type OutParser = Parsec String  (HM.HashMap NativeTxt NativeVal)
 
@@ -332,7 +336,7 @@ mOutMacro = do
   string "macro"
   char '_'
   i <- csIdent
-  spaces
+  ignorable
   string "="
   t <- manyTill  anyChar (try $ outMacroEnd)
   modifyState $ HM.insert (MacroDef i) (NativeVal t)
@@ -341,9 +345,9 @@ mOutMacro = do
 coutSizeOf :: OutParser ()
 coutSizeOf = do
   string "sizeof"
-  spaces
+  ignorable
   i <- csIdent
-  spaces
+  ignorable
   string "=("
   t <- manyTill  anyChar (try $ cOutEndLine)
   modifyState $ HM.insert (StructSize i) (NativeVal t)
@@ -352,11 +356,11 @@ coutSizeOf = do
 coutOffset :: OutParser ()
 coutOffset = do
   string "offset"
-  spaces
+  ignorable
   s <- csIdent
-  spaces
+  ignorable
   f <- csIdent
-  spaces
+  ignorable
   string "=("
   t <- manyTill  anyChar (try $ cOutEndLine)
   modifyState $ HM.insert (StructOffset s f) (NativeVal t)
