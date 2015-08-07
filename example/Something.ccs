@@ -45,7 +45,7 @@ enum SockType {
      class OtherAddrInfo { 
              int AFUnspec = #AF_UNSPEC ;
       	     int AFInet    = #AF_INET ;
-       	     string AIFlagOffset = #$offset(addrinfo, ai_flags);
+       	     string AIFlagOffset = #offset(addrinfo, ai_flags);
        	      AIFamily  aifamily = { get { return x;} set { junk = i;}};
        }
 
@@ -54,8 +54,8 @@ enum SockType {
    class SillyClass {
    	 public static void Main(String []args) {
 	 	Console.WriteLine("AF_UNSPEC = {0} ", #AF_UNSPEC);
-		Console.WriteLine("offset of ai_family = {1}", #$offset(addrinfo ai_family));
-		Console.WriteLine("size of addrinfo is {0}", #$sizeof(addrinfo) );
+		Console.WriteLine("offset of ai_family = {1}", #offset(addrinfo,ai_family));
+		Console.WriteLine("size of addrinfo is {0}", #sizeof(addrinfo) );
 	 }
 
 }

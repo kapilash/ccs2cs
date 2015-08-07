@@ -133,10 +133,10 @@ actOnFile (compiler, preproc) f = do
      maybeMap <-runCpp (f ++ ".m") preproc
      case maybeMap of
       Nothing -> do {putStrLn "failed during pre-processor. Quitting"; return ()}
-      Just nMap -> do maybeFinMap <- genCCode (set, nMap, ccsFile) (f ++ ".c") compiler
+      Just nMap -> do maybeFinMap <- genCCode (set, HM.empty, ccsFile) (f ++ ".c") compiler
                       case maybeFinMap of
                        Nothing  -> do {putStrLn "failed during c compilation.Quitting"; return ()}
-                       Just fmp -> genCSCode (fmp, ccsFile) (f ++ ".cs")
+                       Just fmp -> do {printMap fmp; genCSCode (fmp, ccsFile) (f ++ ".cs")}
 
 main = do
   args <- getArgs

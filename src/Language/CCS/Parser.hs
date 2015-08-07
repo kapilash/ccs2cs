@@ -91,7 +91,7 @@ symbol str = do
   ignorable
   return s
 
-keyword :: String -> Parser ()
+keyword :: (Monad m) => String -> ParsecT String u m ()
 keyword str = do
   string str
   notFollowedBy alphaNum
@@ -197,23 +197,36 @@ structDef = do
   csid <- csIdent
   isEqualTo
   cName <- csIdent
-  mems <- between openBrace closeBrace (many strMember)
+  mems <- between openBrace closeBrace (many $ strMember cName)
   return $ CSStruct csid cName mems
  where
-   strMember = do
+   strMember cName = do
      tn <- typeName
      csField <- csIdent
      isEqualTo
      cfield <- csIdent
      semicolon
+     updateState (addOffset cName cfield)
      return (tn, csField, cfield)
+
+
+ctype :: (Monad m) => ParsecT String u m NativeType
+ctype = (cgentype "int" CInt)
+        <|> (cgentype "long" CLong)
+        <|> (cgentype "char" CChar)
+        <|> (cgentype "float" CFloat)
+        <|> (cgentype "short" CShort)
+        <|> (cgentype "str" CStr)
+  where cgentype str t = do try (keyword str)
+                            return t
+
 
 cstype = enumDef <|> classDef <|> structDef
 
 hashedEnumVal :: Parser EnumValue
 hashedEnumVal = do
      char '#'
-     t <- (enumMacro <|> try enumSize <|> enumOffset)
+     t <- (try enumOffset  <|> try enumSize <|> enumMacro)
      return t
  where
    enumMacro :: Parser EnumValue
@@ -224,14 +237,14 @@ hashedEnumVal = do
 
    enumSize :: Parser EnumValue
    enumSize = do
-     keyword "$sizeof"
+     keyword "sizeof"
      str <- between openBracket closeBracket csIdent
      updateState (addSizeOf str)
      return $ EnumSize str
 
    enumOffset :: Parser EnumValue
    enumOffset = do
-     keyword "$offset"
+     keyword "offset"
      openBracket
      str <- csIdent
      comma
@@ -273,26 +286,33 @@ epilogue = do
 hashFragment :: Parser CSVal
 hashFragment = do
   char '#'
-  (cshd <|> try csfalign <|> csdblhash <|> csizeof)
-  where 
+  (try csmacro <|> try csfalign <|> try csizeof <|>   csdblhash <|> cshd)
+  where
+    csmacro = do
+      t <- ctype
+      m <- between openBracket (char ')') csIdent
+      return $ CHashDef t m
+    
     csdblhash = do
       char '#'
       return $ CDblHash
+      
     cshd = do
       s <- csIdent
-      return $ CHashDef s
+      return $ CHashDef CInt s
   
     csfalign = do
-      string "$offset"
+      string "offset"
       openBracket
       s <- csIdent
+      comma
       f <- csIdent
       char ')'
       updateState (addOffset s f)
       return $ CFieldOffset s f
 
     csizeof = do
-      string "$sizeof"
+      string "sizeof"
       openBracket
       s <- csIdent
       char ')'
@@ -339,8 +359,16 @@ mOutMacro = do
   ignorable
   string "="
   t <- manyTill  anyChar (try $ outMacroEnd)
-  modifyState $ HM.insert (MacroDef i) (NativeVal t)
+  modifyState $ HM.insert (MacroDef CInt i) (NativeVal t)
 
+coutMacro :: OutParser ()
+coutMacro = do
+  ct <- ctype
+  i <- csIdent
+  string "=("
+  t <- manyTill anyChar (try $ cOutEndLine)
+  modifyState $ HM.insert (MacroDef ct i) (NativeVal t)
+  
 
 coutSizeOf :: OutParser ()
 coutSizeOf = do
@@ -370,7 +398,7 @@ cOutParser = do
   many1 cout
   eof
   getState
-    where cout = coutSizeOf <|> coutOffset
+    where cout = try coutMacro <|> coutSizeOf <|> coutOffset
 
 macroStart = do
   string "--CCS2CS--Macro-Expansions--"

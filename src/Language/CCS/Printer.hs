@@ -14,18 +14,26 @@ headersToC = vcat . map includeToC
 
 nativeTxtToM (StructOffset _ _) = empty
 nativeTxtToM (StructSize _) = empty
-nativeTxtToM (MacroDef s) = text "macro_" <> (text s)
+nativeTxtToM (MacroDef _ s) = text "macro_" <> (text s)
                             <+> text "="
                             <> (text s)
                             <> text "-;;-"
 
 
-macroPrintStmt :: String -> Doc
-macroPrintStmt s = nest 8 $ text "printf("
-                   <> (doubleQuotes $ text "macro" <+> text s <+> text "=(%lu);\\n")
-                   <+> text ","
-                   <+> text s
-                   <+> text ");"
+ctypeToDoc CInt = (text "int", text "=(%lu)")
+ctypeToDoc CShort = (text "short", text "=(%u)")
+ctypeToDoc CChar = (text "char", text "=(%c)")
+ctypeToDoc CStr  = (text "long", text "=(%s)")
+ctypeToDoc CFloat = (text "float", text "=(%lf)")
+
+
+
+macroPrintStmt :: String -> (Doc,Doc) -> Doc
+macroPrintStmt s (d,f) = nest 8 $ text "printf("
+                         <> (doubleQuotes $ d <+> text s <+> f <> text ";\\n")
+                         <+> text ","
+                         <+> text s
+                         <+> text ");"
 
 structSizePrintStmt :: String -> Doc
 structSizePrintStmt s = nest 8 $ text "printf("
@@ -41,12 +49,12 @@ offsetPrintStmt s f = nest 8 $ text "printf("
                         <+> text "offsetof(struct" <+> text s <> text "," <+> text f <> text ")"
                         <+> text ");"
 
-nativeTxtToC (MacroDef s) = empty  -- vcat [text "#ifdef" <+> (text s), macroPrintStmt s, text "#endif"]
+nativeTxtToC (MacroDef t s) = macroPrintStmt s (ctypeToDoc t)
 nativeTxtToC (StructSize s) = structSizePrintStmt s
 nativeTxtToC (StructOffset s f) = offsetPrintStmt s f
 
 
-printStmts =  vcat . map nativeTxtToC . filter isNotMacro .  HS.toList 
+printStmts =  vcat . map nativeTxtToC .  HS.toList 
 
 macroStmts = vcat . map nativeTxtToM . filter isMacro . HS.toList
 
@@ -87,7 +95,7 @@ extractNMap n = nativeToDoc . HM.lookupDefault unkval n
 
 csValToDoc :: CCSMap -> CSVal -> Doc
 csValToDoc nm (CFieldOffset s v) = extractNMap (StructOffset s v) nm
-csValToDoc nm (CHashDef s)       = extractNMap (MacroDef s) nm
+csValToDoc nm (CHashDef t s)       = extractNMap (MacroDef t s) nm
 csValToDoc nm (CSizeOf s)        = extractNMap (StructSize s) nm
 csValToDoc _ (CSVerbatim txt)   = text txt
 csValToDoc _ CDblHash           = text "#"
@@ -97,7 +105,7 @@ epilogToDoc nm vals = hcat $ map (csValToDoc nm) vals
 
 enumValToDoc :: CCSMap -> EnumValue -> Doc
 enumValToDoc nm EmptyEnum = empty
-enumValToDoc nm (FromMacro s) = extractNMap (MacroDef s) nm
+enumValToDoc nm (FromMacro s) = extractNMap (MacroDef CInt s) nm
 enumValToDoc nm (EnumText s) = text s
 enumValToDoc nm (EnumComplex vs) = hcat $ [lbrace] ++ ( map (enumValToDoc nm) vs) ++ [rbrace]
 enumValToDoc nm (EnumSize s)     = extractNMap (StructSize s) nm
