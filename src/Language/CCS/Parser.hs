@@ -226,9 +226,16 @@ cstype = enumDef <|> classDef <|> structDef
 hashedEnumVal :: Parser EnumValue
 hashedEnumVal = do
      char '#'
-     t <- (try enumOffset  <|> try enumSize <|> enumMacro)
+     t <- (try enumOffset  <|> try enumSize <|> try typedEnumMacro <|> enumMacro)
      return t
  where
+   typedEnumMacro :: Parser EnumValue
+   typedEnumMacro = do
+     t <- ctype
+     i <- between openBracket closeBracket csIdent
+     updateState (addMacro i)
+     return $ FromMacro i
+     
    enumMacro :: Parser EnumValue
    enumMacro = do
      ident <- csIdent

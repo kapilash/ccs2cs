@@ -21,11 +21,10 @@ nativeTxtToM (MacroDef _ s) = text "macro_" <> (text s)
 
 
 ctypeToDoc CInt = (text "int", text "=(%lu)")
-ctypeToDoc CShort = (text "short", text "=(%u)")
 ctypeToDoc CChar = (text "char", text "=(%c)")
-ctypeToDoc CStr  = (text "long", text "=(%s)")
+ctypeToDoc CStr  = (text "str", text "=(%s)")
 ctypeToDoc CFloat = (text "float", text "=(%lf)")
-
+ctypeToDoc _ = (text "long", text "=(%lu)")
 
 
 macroPrintStmt :: String -> (Doc,Doc) -> Doc
