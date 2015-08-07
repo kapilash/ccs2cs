@@ -127,16 +127,10 @@ actOnFile (compiler, preproc) f = do
   case maybeRes of
    Nothing  -> do {putStrLn "could not parse. Quitting"; return ()}
    Just (set,ccsFile) -> do
-     putStrLn "generating code for pre-processor"
-     genMCode (set,ccsFile) (f ++ ".m")
-     putStrLn "running preprocessor"
-     maybeMap <-runCpp (f ++ ".m") preproc
-     case maybeMap of
-      Nothing -> do {putStrLn "failed during pre-processor. Quitting"; return ()}
-      Just nMap -> do maybeFinMap <- genCCode (set, HM.empty, ccsFile) (f ++ ".c") compiler
-                      case maybeFinMap of
-                       Nothing  -> do {putStrLn "failed during c compilation.Quitting"; return ()}
-                       Just fmp -> do {printMap fmp; genCSCode (fmp, ccsFile) (f ++ ".cs")}
+      maybeFinMap <- genCCode (set, HM.empty, ccsFile) (f ++ ".c") compiler
+      case maybeFinMap of
+       Nothing  -> do {putStrLn "failed during c compilation.Quitting"; return ()}
+       Just fmp -> do {printMap fmp; genCSCode (fmp, ccsFile) (f ++ ".cs")}
 
 main = do
   args <- getArgs
