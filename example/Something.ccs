@@ -26,27 +26,29 @@ namespace My.Namespace {
 enum SockType {
      SockStream = #SOCK_STREAM,
      SockDatagram  = #SOCK_DGRAM ,
-     Any      = { 0 }
+     Any      =  0,
   }
 
   enum AIFamily {
     AFUnspec = #int(AF_UNSPEC),
     AFInet   = #str ( AF_INET),
+    WTF      = 2781 ,
     AFInet6  = #long (AF_INET6)
   }
  
    struct AddrInfo = addrinfo { 
-       int aiFlags  = ai_flags ;
-       AIFamily aiFamily = ai_family;
-       SockType sockType  = ai_socktype;
+       Int aiFlags  = ai_flags ;
+       Int16 aiFamily = ai_family;
+       Int sockType  = ai_socktype;
        IntPtr next   = ai_next;
     }
 
      class OtherAddrInfo { 
              int AFUnspec = #AF_UNSPEC ;
       	     int AFInet    = #AF_INET ;
-       	     string AIFlagOffset = #offset(addrinfo, ai_flags);
-       	      AIFamily  aifamily = { get { return x;} set { junk = i;}};
+       	     int AIFlagOffset = #offset(addrinfo, ai_flags);
+       	     long t =  {  #AF_INET + 12};
+	     short t = arbitrary text is arbitrary ;
        }
 
 #END

@@ -151,6 +151,8 @@ semicolon = symbol ";"
 openBracket = symbol "("
 closeBracket = symbol ")"
 
+
+
 options :: Parser [CompOpt]
 options = do
   keyword "options"
@@ -263,16 +265,16 @@ hashedEnumVal = do
 enumComplex  :: Parser EnumValue
 enumComplex = do
      openBrace
-     parts <- many1 (enumValue <|> asIsCode EnumText)
+     parts <- many1 (hashedEnumVal <|> asIsCode)
      closeBrace
      return $ EnumComplex parts
-  where
-    asIsCode :: (String -> a) -> Parser a
-    asIsCode f = do
-      t <- many1 $ noneOf "$#{}"
-      return $ f t
 
-enumValue = hashedEnumVal <|> enumComplex
+asIsCode :: Parser a
+asIsCode  = do
+  t <- many1 $ noneOf ";#,"
+  return $ EnumText t
+
+enumValue = try hashedEnumVal <|> try enumComplex <|> asIsCode
             <?> "Enum Value"
 
 csVerbatim = do

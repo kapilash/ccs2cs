@@ -106,7 +106,7 @@ enumValToDoc :: CCSMap -> EnumValue -> Doc
 enumValToDoc nm EmptyEnum = empty
 enumValToDoc nm (FromMacro s) = extractNMap (MacroDef CInt s) nm
 enumValToDoc nm (EnumText s) = text s
-enumValToDoc nm (EnumComplex vs) = hcat $ [lbrace] ++ ( map (enumValToDoc nm) vs) ++ [rbrace]
+enumValToDoc nm (EnumComplex vs) = hcat $ map (enumValToDoc nm) vs
 enumValToDoc nm (EnumSize s)     = extractNMap (StructSize s) nm
 enumValToDoc nm (EnumOffset s f) = extractNMap (StructOffset s f) nm
 
@@ -123,12 +123,11 @@ enumFieldsToDoc nm (f:s:rest) =  enumFieldToDoc nm f <+> comma $+$ (enumFieldsTo
 clsFieldToDoc :: CCSMap -> (String ,String, EnumValue) -> Doc
 clsFieldToDoc _ (typ,f,  EmptyEnum) = nest 4 $ text "internal" <+> text "static" <+> text typ <+> text  "{ get; set; }"
 clsFieldToDoc nm (typ, f, EnumText s)  = nest 4 $ hsep [text "internal", text "static", text typ , text f , text "=" , text s, semi]
-clsFieldToDoc nm (typ, f, e@(EnumComplex vs) )  = nest 4 $  hsep [text "internal", text "const", text typ , text f , enumValToDoc nm e]
 clsFieldToDoc nm (typ, f, e )  = nest 4 $ hsep [text "internal", text "const", text typ , text f , text "=" , enumValToDoc nm e, semi]
                                 
 enumToDoc :: CCSMap -> String -> [(String, EnumValue)] -> Doc
 enumToDoc nm  enumName lst =  enumDef
-  where enumDef = vcat $ [text "internal" <+> text "enum",
+  where enumDef = vcat $ [text "internal" <+> text "enum" <+> text enumName,
                           lbrace,
                           enumFieldsToDoc nm lst,
                           rbrace]
