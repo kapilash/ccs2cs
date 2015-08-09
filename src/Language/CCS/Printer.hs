@@ -53,7 +53,7 @@ nativeTxtToC (StructSize s) = structSizePrintStmt s
 nativeTxtToC (StructOffset s f) = offsetPrintStmt s f
 
 
-printStmts =  vcat . map nativeTxtToC .  HS.toList 
+printStmts =  vcat . map nativeTxtToC . filter isNotMacro .  HS.toList 
 
 macroStmts = vcat . map nativeTxtToM . filter isMacro . HS.toList
 

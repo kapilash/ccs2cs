@@ -269,7 +269,7 @@ enumComplex = do
      closeBrace
      return $ EnumComplex parts
 
-asIsCode :: Parser a
+asIsCode :: Parser EnumValue
 asIsCode  = do
   t <- many1 $ noneOf ";#,"
   return $ EnumText t
@@ -404,7 +404,7 @@ coutOffset = do
 
 cOutParser :: OutParser (HM.HashMap NativeTxt NativeVal)
 cOutParser = do
-  many1 cout
+  many cout
   eof
   getState
     where cout = try coutMacro <|> coutSizeOf <|> coutOffset
