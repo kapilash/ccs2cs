@@ -30,10 +30,10 @@ enum SockType {
   }
 
   enum AIFamily {
-    AFUnspec = #int(AF_UNSPEC),
-    AFInet   = #str ( AF_INET),
+    AFUnspec = #AF_UNSPEC,
+    AFInet   = #AF_INET,
     WTF      = 2781 ,
-    AFInet6  = #long (AF_INET6)
+    AFInet6  = #AF_INET6
   }
  
    struct AddrInfo = addrinfo { 
@@ -47,7 +47,7 @@ enum SockType {
              int AFUnspec = #AF_UNSPEC ;
       	     int AFInet    = #AF_INET ;
        	     int AIFlagOffset = #offset(addrinfo, ai_flags);
-       	     long t =  {  #AF_INET + 12};
+       	     long t =  { #AF_INET + 12 } ;
 	     short t = arbitrary text is arbitrary ;
        }
 
@@ -55,7 +55,7 @@ enum SockType {
 
    class SillyClass {
    	 public static void Main(String []args) {
-	 	Console.WriteLine("AF_UNSPEC = {0} ", #long(AF_UNSPEC));
+	 	Console.WriteLine("AF_UNSPEC = {0} ", #AF_UNSPEC);
 		Console.WriteLine("offset of ai_family = {1}", #offset(addrinfo,ai_family));
 		Console.WriteLine("size of addrinfo is {0}", #sizeof(addrinfo) );
 	 }

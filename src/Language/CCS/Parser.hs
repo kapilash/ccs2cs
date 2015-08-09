@@ -211,33 +211,14 @@ structDef = do
      updateState (addOffset cName cfield)
      return (tn, csField, cfield)
 
-
-ctype :: (Monad m) => ParsecT String u m NativeType
-ctype = (cgentype "int" CInt)
-        <|> (cgentype "long" CLong)
-        <|> (cgentype "char" CChar)
-        <|> (cgentype "float" CFloat)
-        <|> (cgentype "short" CShort)
-        <|> (cgentype "str" CStr)
-  where cgentype str t = do try (keyword str)
-                            return t
-
-
 cstype = enumDef <|> classDef <|> structDef
 
 hashedEnumVal :: Parser EnumValue
 hashedEnumVal = do
      char '#'
-     t <- (try enumOffset  <|> try enumSize <|> try typedEnumMacro <|> enumMacro)
+     t <- (try enumOffset  <|> try enumSize <|> enumMacro)
      return t
  where
-   typedEnumMacro :: Parser EnumValue
-   typedEnumMacro = do
-     t <- ctype
-     i <- between openBracket closeBracket csIdent
-     updateState (addMacro i)
-     return $ FromMacro i
-     
    enumMacro :: Parser EnumValue
    enumMacro = do
      ident <- csIdent
@@ -271,7 +252,7 @@ enumComplex = do
 
 asIsCode :: Parser EnumValue
 asIsCode  = do
-  t <- many1 $ noneOf ";#,"
+  t <- many1 $ noneOf ";#,}"
   return $ EnumText t
 
 enumValue = try hashedEnumVal <|> try enumComplex <|> asIsCode
@@ -299,9 +280,8 @@ hashFragment = do
   (try csmacro <|> try csfalign <|> try csizeof <|>   csdblhash <|> cshd)
   where
     csmacro = do
-      t <- ctype
       m <- between openBracket (char ')') csIdent
-      return $ CHashDef t m
+      return $ CHashDef m
     
     csdblhash = do
       char '#'
@@ -309,7 +289,7 @@ hashFragment = do
       
     cshd = do
       s <- csIdent
-      return $ CHashDef CInt s
+      return $ CHashDef s
   
     csfalign = do
       string "offset"
@@ -369,15 +349,7 @@ mOutMacro = do
   ignorable
   string "="
   t <- manyTill  anyChar (try $ outMacroEnd)
-  modifyState $ HM.insert (MacroDef CInt i) (NativeVal t)
-
-coutMacro :: OutParser ()
-coutMacro = do
-  ct <- ctype
-  i <- csIdent
-  string "=("
-  t <- manyTill anyChar (try $ cOutEndLine)
-  modifyState $ HM.insert (MacroDef ct i) (NativeVal t)
+  modifyState $ HM.insert (MacroDef i) (NativeVal t)
   
 
 coutSizeOf :: OutParser ()
@@ -408,7 +380,7 @@ cOutParser = do
   many cout
   eof
   getState
-    where cout = try coutMacro <|> coutSizeOf <|> coutOffset
+    where cout = coutSizeOf <|> coutOffset
 
 macroStart = do
   string "--CCS2CS--Macro-Expansions--"

@@ -9,23 +9,12 @@ This document provides instructions on using **ccs2cs** for writing C# wrappers 
 ccs2cs takes a file containing C# code interspersing with C pre-processor macros (and other compile time constants)  and generates a (reasonably pretty)  C# file.
 
 ### macros
-ccs2cs allows us to use any c *constant vaiable*  via one of the following:
-+ #int( VARIABLE-NAME )
-+ #str( VARIABLE-NAME )
-+ #chr( VARIABLE-NAME )
-+ #float( VARIABLE-NAME )
-+ #long( VARIABLE-NAME )
-+ #short( VARIABLE-NAME )
+ccs2cs allows us to use any c *constant vaiable*  via ` #VariableName `. This gets replaced by  the value in a C Program using the same pre-processor directives as the current ccs file. In addition there are following special constructs:
 
-Depending on the type of the variable (in c#), we use appropriate version of the above. The *VARIABLE-NAME* used above is any c variable. Typically, these refer to the variable defined via pre-processor definitions (`#define VAR_NAME VAR-VALUE`) . Such a variable, if it is of type `int` is used in ccs as `#int(VAR_NAME)` and would get evaluated to VAR-VALUE.
-In addition, there are following shortcuts:
-
-+ #VariableName : this is syntax sugar for `#int( VariableName )`
 + #offset( structName, fieldName): this is equivalent to the `offsetof(struct structName, fieldName)` function of C.
 + #size( structName ) : this is equivalent to `sizeof(struct structName)` in C.
 
-As will be explained later, we can introduces new definitions and use them for evaluating more complex constant values of C.
-
+As will be explained later, we can introduce new definitions as part of pre-processor directives and use them for evaluating more complex (but constant) values of C.
 
 ### Sections
 
@@ -39,8 +28,8 @@ Each of these are explained in the following sections.
 
 ### PROLOGUE
 
-A **prologue** contains arbitrary C# code. The text in this section is copied *verbatim* into the generated file. This section is typically used for comments, copyright info,
-*using* statements, namespace declarations and even ,if needed, writing wrapper types.
+The **prologue** contains arbitrary C# code. The text in this section is copied *verbatim* into the generated file. This section is typically used for comments, copyright info,
+*using* statements, *namespace* declarations and such.
 
 
 ### CCS Types.
@@ -143,7 +132,8 @@ Any text following `#END` can contain csharp code interspersed with any of the m
 ## Running
 ccs2cs works by
 + parses the ccs file
-+ generating a c file such that, when run, it provides ccs2cs all the values of relevant c macros.
++ generating an file containing macro definitions and running a c-preprocessor on it and extracting the value of macros.
++ generating a c file such that, when run, it provides ccs2cs all the values of relevant ccs constructs.
 + ccs2cs then invokes a c compiler (cl.exe on windows and clang on other operating systems) on the generated c code to generate an executable.
 + This executable is then run, and its output is parsed to finally create the C# file with values filled.
 
@@ -154,4 +144,4 @@ ccs2cs has been tested with ghc 7.10.2. It can be built from source like any cab
 
 **TODO**
 
-A silly-ish example is available in the examples folder.
+A couple of silly-ish examples are  available in the examples folder. Need more substantial examples.

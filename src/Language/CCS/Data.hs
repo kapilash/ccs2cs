@@ -38,7 +38,7 @@ newtype CSPrologue = CSPrologue [String]
                      deriving Show
 
 data FieldValue = CField String
-                | HField NativeType String
+                | HField String
                 | FieldTxt String
                  deriving (Eq,Show)
 
@@ -54,7 +54,7 @@ data EnumValue = EmptyEnum
                  deriving (Eq,Show)
 
 data CSVal = CFieldOffset String String
-           | CHashDef NativeType String
+           | CHashDef  String
            | CSVerbatim String
            | CDblHash
            | CSizeOf String
@@ -79,21 +79,13 @@ data CCSFile = CCSFile {
                deriving Show
 
 
-data NativeType = CInt
-                |CShort
-                |CChar
-                |CStr
-                |CFloat
-                |CLong
-                deriving (Eq,Show,Enum) 
-
-data  NativeTxt = MacroDef NativeType String
+data  NativeTxt = MacroDef String
                  | StructSize String
                  | StructOffset String String
                    deriving (Eq, Show)
 
 isMacro :: NativeTxt -> Bool
-isMacro (MacroDef _ _) = True
+isMacro (MacroDef _) = True
 isMacro _            = False
 
 isNotMacro :: NativeTxt -> Bool
@@ -103,7 +95,7 @@ newtype NativeVal =  NativeVal String
                   deriving (Eq, Show)
 
 hwsalt :: Int -> NativeTxt -> Int
-hwsalt i (MacroDef t s) = hashWithSalt (hashWithSalt i s)  (fromEnum t)
+hwsalt i (MacroDef s) = hashWithSalt (hashWithSalt i s)  "@$MacroDef"
 hwsalt i (StructSize s) = hashWithSalt (hashWithSalt i s) "@$Sizeof"
 hwsalt i (StructOffset s f) = hashWithSalt (hashWithSalt (hashWithSalt i s) f) "@$Sizeof"
 
@@ -119,12 +111,10 @@ printNTV (n, NativeVal s) = putStrLn $ (show n) ++ " = " ++ s
 
 
 addFieldVal str (CField f) set = HS.insert (StructOffset str f) set
-addFieldVal _      (HField t h) set = HS.insert (MacroDef t h) set
+addFieldVal _      (HField h) set = HS.insert (MacroDef h) set
 addFieldVal _      _          set = set
 
-addTypedMacro (t,str) set = HS.insert (MacroDef t str) set
-
-addMacro str set = HS.insert (MacroDef CInt str) set
+addMacro str set = HS.insert (MacroDef str) set
 
 addSizeOf str set = HS.insert (StructSize str) set
 
