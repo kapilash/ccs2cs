@@ -282,8 +282,9 @@ csVerbatim = do
   return $ CSVerbatim code
 
 epiMarker = do
-  keyword "#END"
-  manyTill anyChar (try endOfLine)
+  string "#END"
+  many (oneOf " \t")
+  endOfLine
   return ()
   
 epilogue = do
@@ -340,7 +341,7 @@ typeName = do
 ccsFile = do
   (prol,l,i) <- prologue
   hdrs <- headers
-  types <- manyTill cstype epiMarker
+  types <- manyTill cstype (try epiMarker)
   epi <- epilogue
   set <- getState
   return $ (set, CCSFile prol l i hdrs types epi)
